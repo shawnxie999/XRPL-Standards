@@ -31,6 +31,9 @@ Currently, accounts that have enabled clawback cannot create AMM pools. This pro
 ### 2.1. AMM and Frozen Asset 
 #### 2.1.1. Prohibiting depositing new tokens
 #### 2.1.2. Prohibiting transfering LPTokens that are frozen
+#### 2.1.2.1. Payment Engine
+In the current behavior, after the issuer freezes a trustline by setting `lsfHighFreeze`/`lsfLowFreeze` on the trustline (individual freeze) or `lsfGlobalFreeze` on the account (global freeze), the trustline cannot decrease its balance but can still increase its balance (allowing the receipt of funds). This proposal suggests a change to the behavior: __any frozen trustline can no longer increase its balance as a result of any transaction__. In other words, any receipt of funds in the frozen trustline will result in failure.
+
 ### 2.2. AMM and Clawback
 #### 2.2.1. Allow creation of AMM pool when tokens have enabled clawback
 #### 2.2.2. New transaction to claw back from AMM pools
