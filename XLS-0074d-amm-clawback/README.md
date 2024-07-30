@@ -31,8 +31,41 @@ Currently, accounts that have enabled clawback cannot create AMM pools. This pro
 ### 2.1. AMM and Frozen Asset 
 #### 2.1.1. Prohibiting depositing new tokens
 #### 2.1.2. Prohibiting transfering LPTokens that are frozen
-#### 2.1.2.1. Payment Engine
-In the current behavior, after the issuer freezes a trustline by setting `lsfHighFreeze`/`lsfLowFreeze` on the trustline (individual freeze) or `lsfGlobalFreeze` on the account (global freeze), the trustline cannot decrease its balance but can still increase its balance (allowing the receipt of funds). This proposal suggests a change to the behavior: __any frozen trustline can no longer increase its balance as a result of any transaction__. In other words, any receipt of funds in the frozen trustline will result in failure.
+Currently, the payment engines allows direct and cross-currency (with offers) payment of LPTokens. However, LPToken holders are still allowed to transfer LPToken even if one of the tokens in the pool is holder's frozen token. This allows frozen holder to transfer the LPTokens to other accounts, who could redeem the LPTokens. This document proposes changes to the payment engine to prevent the transfer of LPTokens where the owner has been frozen for one of the assets. This would change both rippling and order book steps.
+
+##### 2.1.2.1.1. Rippling  
+We propose a change to the rippling step (DirectStep): after the issuer freezes a holder's trustline by setting `lsfHighFreeze`/`lsfLowFreeze` on the trustline (individual freeze) or `lsfGlobalFreeze` on the account (global freeze), __the step fails if the sender tries to send LPTokens while having one of the assets in the pool being frozen__. 
+
+###### Example
+Let's consider the following example
+1. Carol issued USD to Alice and Bob
+2. There exists an AMM pool with assets XRP and Carol's USD 
+3. Both Alice and Bob deposited into the AMM pool, getting back some LPTokens
+4. Carol freezes Alice's USD trustline
+5. 
+
+```
+                              +-------+
+   -------------------------- | Carol | ------------------------- 
+   |                          +-------+                         | 
+   |                              |                             |
+   |                              |                             |
+   | USD (frozen)                 | USD                         | USD 
+   |                              |                             |
+   |                              |                             |
++-------+       LPT        +-------------+           LPT    +-------+
+| Alice | ---------------> | AMM ACCOUNT | ---------------> |  Bob  |
++-------+                  +-------------+                  +-------+
+                                ^
+                                |
+                                |
+                                v
+                            +-------+ 
+                            |  XRP  | 
+                  AMM Pool  +-------+     
+                            |  USD  |       
+                            +-------+                                        
+```
 
 ### 2.2. AMM and Clawback
 #### 2.2.1. Allow creation of AMM pool when tokens have enabled clawback
