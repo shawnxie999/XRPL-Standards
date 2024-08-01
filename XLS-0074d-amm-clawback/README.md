@@ -31,22 +31,29 @@ Currently, accounts that have enabled clawback cannot create AMM pools. This pro
 ### 2.1. AMM and Frozen Asset 
 #### 2.1.1. Prohibiting depositing new tokens
 #### 2.1.2. Prohibiting transfering LPTokens that are frozen
-Currently, the payment engines allows direct and cross-currency (with offers) payment of LPTokens. However, LPToken holders are still allowed to transfer LPToken even if one of the tokens in the pool is holder's frozen token. This allows frozen holder to transfer the LPTokens to other accounts, who could redeem the LPTokens. This document proposes changes to the payment engine to prevent the transfer of LPTokens where the owner has been frozen for one of the assets. This would change both rippling and order book steps.
 
-##### 2.1.2.1.1. Rippling  
-We propose a change to the rippling step (DirectStep): after the issuer freezes a holder's trustline by setting `lsfHighFreeze`/`lsfLowFreeze` on the trustline (individual freeze) or `lsfGlobalFreeze` on the account (global freeze), __the step fails if the sender tries to send LPTokens while having one of the assets in the pool being frozen__. 
+The document introduces a new defintion: 
+
+> __A holder's LPToken is frozen__ if the holder has been frozen (either globally or individually) by the issuer of one of the assets in the AMM pool.
+
+Currently, the ledger permits the creation of offers involving frozen LPTokens and allows for direct and cross-currency payments using these tokens. Additionally, holders of frozen LPTokens can still transfer them, potentially enabling redemption by other accounts.
+This document proposes breaking changes to the offers and payment engine to prevent the transfer of frozen LPTokens.
+
+##### 2.1.2.1.1. Offers
+This proposal introduces a new change to the `OfferCreate` transaction to prevent the creation of offers involving frozen LPTokens. Specifically: 
+* If the `TakerGets` field specifies a frozen LPToken, the `OfferCreate` transaction will return a `tecFROZEN` error.
+
+Moreover, any existing offers with `TakerGets` set to a frozen LPToken __can no longer be consumed and will be considered as an _unfunded_ offer that will be implicitly cancelled by new Offers that cross it.__
+
+##### 2.1.2.1.2. Rippling  
+We propose modifying the rippling step of the payment engine to include a new failure condition: __if the sender attempts to send LPTokens and one or more assets in the associated pool are frozen, the rippling step will fail.__
 
 ###### Example
-Let's consider the following example
-1. Carol issued USD to Alice and Bob
-2. There exists an AMM pool with assets XRP and Carol's USD 
-3. Both Alice and Bob deposited into the AMM pool, getting back some LPTokens
-4. Carol freezes Alice's USD trustline
-5. 
+Let's consider the following example:
 
 ```
                               +-------+
-   -------------------------- | Carol | ------------------------- 
+   +------------------------- | Carol | ------------------------+ 
    |                          +-------+                         | 
    |                              |                             |
    |                              |                             |
@@ -56,16 +63,65 @@ Let's consider the following example
 +-------+       LPT        +-------------+           LPT    +-------+
 | Alice | ---------------> | AMM ACCOUNT | ---------------> |  Bob  |
 +-------+                  +-------------+                  +-------+
-                                ^
-                                |
-                                |
-                                v
-                            +-------+ 
-                            |  XRP  | 
-                  AMM Pool  +-------+     
-                            |  USD  |       
-                            +-------+                                        
+                                    ^
+                                    |
+                                    |
+                                    v
+                                +-------+ 
+                                |  XRP  | 
+                      AMM Pool  +-------+     
+                                |  USD  |       
+                                +-------+                                        
 ```
+
+1. Carol issues USD to Alice and Bob
+2. An AMM pool is created with assets XRP and Carol's USD 
+3. Both Alice and Bob deposit into the AMM pool, getting back some LPTokens
+4. Carol freezes Alice's USD trustline
+5. Alice tries to send Bob some LPToken
+
+Currently, at Step 5, Alice can successfully transfer LPTokens to Bob through the AMM account as the gateway. This proposal introduces a change of behavior: _Alice fails to send LPToken to Bob because her USD trustline is frozen._
+
+##### 2.1.2.1.3. Order Book  
+We propose modifying the order book step of the payment engine to include a failure condition: __if an offer's `TakerGets` field specifies a frozen LPToken, the offer will be considered unfunded and any attempt to consume it will result in a step failure.__
+
+###### Example
+Let's consider the following example:
+
+```
+
+                                +-------+
+   +----------------------------| Carol | -------------------------+---------------------+ 
+   |                            +-------+                          |                     |
+   |                                |                              |                     |
+   |                                |                              |                     |
+   | USD (frozen)                   | USD (frozen)                 | USD                 | USD
+   |                                |                              |                     |
+   |                             +-----+                           |                     |
+   |                             | Bob |                           |                     |
+   |                             +-----+                           |                     |
+   |                                 ^                             |                     |
+   |                                 |                             |                     |
+   |                                 |                             |                     |
+   |                                 v                             |                     |                                       
++-------+         XRP            +--------------+      LPT     +----------+    LPT    +-------+
+| Alice | ---------------------> | Bob's Offer  | -----------> | AMM ACCT | --------> | David |
++-------+     SendMax: 100 XRP   +--------------+              +----------+           +-------+
+              Amount: 100 LPT    | Buy: 100 XRP |       
+                                 +--------------+
+                                 | Sell: 100 LPT|
+                                 +--------------+
+                                                                         
+```
+
+1. Carol issues USD to Alice, Bob and David
+2. An AMM pool is created with assets XRP and Carol's USD 
+3. Alice, Bob and David deposit into the AMM pool, getting back some LPTokens
+4. Carol freezes Bob's USD trustline
+5. Alice tries to send David LPToken by consuming Bob's offer
+
+Currently, at Step 5, Alice can successfully transfer LPTokens to David through Bob's order book (which sells LPToken in exchange for XRP). This proposal introduces a change of behavior: _Alice fails to send LPToken to David because Bob's offer is now considered to be unfunded and cannot be consumed._
+
 
 ### 2.2. AMM and Clawback
 #### 2.2.1. Allow creation of AMM pool when tokens have enabled clawback
