@@ -53,8 +53,8 @@ Currently, the ledger permits the creation of offers involving frozen LPTokens a
 This document proposes breaking changes to the offers and payment engine to prevent the transfer of frozen LPTokens.
 
 ##### 2.1.2.1.1. Offers
-This proposal introduces a new change to the `OfferCreate` transaction to prevent the creation of offers involving frozen LPTokens. Specifically: 
-* If the `TakerGets` field specifies a frozen LPToken, the `OfferCreate` transaction will return a `tecFROZEN` error.
+This proposal introduces a new change to the `OfferCreate` transaction to prevent the creation of offers that involve sending frozen LPTokens. Specifically: 
+* If the sell amount (`TakerGets`) field specifies a frozen LPToken, the `OfferCreate` transaction will return a `tecFROZEN` error.
 
 Moreover, any existing offers with `TakerGets` set to a frozen LPToken __can no longer be consumed and will be considered as an _unfunded_ offer that will be implicitly cancelled by new Offers that cross it.__
 
