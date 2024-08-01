@@ -29,7 +29,7 @@ Currently, accounts that have enabled clawback cannot create AMM pools. This pro
 
 ## 2. Specification
 ### 2.1. AMM and Frozen Asset 
-#### 2.1.1. Prohibiting depositing new tokens
+#### 2.1.1. Prohibiting the Deposit of New Tokens
 
 This proposal introduces changes to the behavior of the `AMMDeposit` transaction when tokens in trustlines interact with Automated Market Maker (AMM) pools. 
 
@@ -43,7 +43,7 @@ Assume we have created an Automated Market Maker (AMM) pool with two assets: A a
 
 As illustrated in the table above, the primary change is that when one asset in the AMM pool is frozen, depositing the other asset is no longer allowed. This means that deposits are prohibited for the non-frozen asset when its paired asset is frozen.
 
-#### 2.1.2. Prohibiting transfering LPTokens that are frozen
+#### 2.1.2. Prohibiting the Transfer of Frozen LPTokens
 
 The document introduces a new defintion: 
 
@@ -52,13 +52,13 @@ The document introduces a new defintion:
 Currently, the ledger permits the creation of offers involving frozen LPTokens and allows for direct and cross-currency payments using these tokens. Additionally, holders of frozen LPTokens can still transfer them, potentially enabling redemption by other accounts.
 This document proposes breaking changes to the offers and payment engine to prevent the transfer of frozen LPTokens.
 
-##### 2.1.2.1.1. Offers
+##### 2.1.2.1. Offers
 This proposal introduces a new change to the `OfferCreate` transaction to prevent the creation of offers that involve sending frozen LPTokens. Specifically: 
 * If the sell amount (`TakerGets`) field specifies a frozen LPToken, the `OfferCreate` transaction will return a `tecFROZEN` error.
 
 Moreover, any existing offers with `TakerGets` set to a frozen LPToken __can no longer be consumed and will be considered as an _unfunded_ offer that will be implicitly cancelled by new Offers that cross it.__
 
-##### 2.1.2.1.2. Rippling  
+##### 2.1.2.2. Rippling  
 We propose modifying the rippling step of the payment engine to include a new failure condition: __if the sender attempts to send LPTokens and one or more assets in the associated pool are frozen, the rippling step will fail.__
 
 ###### Example
@@ -95,7 +95,7 @@ Let's consider the following example:
 
 Currently, at Step 5, Alice can successfully transfer LPTokens to Bob through the AMM account as the gateway. This proposal introduces a change of behavior: _Alice fails to send LPToken to Bob because her USD trustline is frozen._
 
-##### 2.1.2.1.3. Order Book  
+##### 2.1.2.3. Order Book  
 We propose modifying the order book step of the payment engine to include a failure condition: __if an offer's `TakerGets` field specifies a frozen LPToken, the offer will be considered unfunded and any attempt to consume it will result in a step failure.__
 
 ###### Example
@@ -137,7 +137,7 @@ Currently, at Step 5, Alice can successfully transfer LPTokens to David through 
 
 
 ### 2.2. AMM and Clawback
-#### 2.2.1. Allow creation of AMM pool when tokens have enabled clawback
+#### 2.2.1. Allowing AMM Pool Creation with Clawback-Enabled Tokens
 Currently, when clawback is enabled for the issuer account by setting `lsfAllowTrustLineClawback` flag, `AMMCreate` is prohibited against this issuer. After the AMMClawback amendment, `AMMCreate` is allowed for clawback-enabled issuer. But the issuer can not clawback from the AMM account using `Clawback` transaction. `AMMClawback` transaction is needed for the issuer to clawback from an AMM account.  
 
 ##### Example: Illustrating the AMMClawback Amendment
@@ -154,7 +154,7 @@ Suppose an issuer has enabled clawback by setting the `lsfAllowTrustLineClawback
 This change allows for the creation of AMM pools with clawback-enabled issuers while introducing a new transaction type (`AMMClawback`) for issuers to clawback assets from AMM accounts.
 
 
-#### 2.2.2. New transaction to claw back from AMM pools  
+#### 2.2.2. Introducing a New Transaction for Clawback from AMM Pools
 This proposal introduces a new transaction type `AMMClawback` to allow asset issuers to claw back their assets from the AMM pool.  
 
 Issuers can only claw back issued tokens in the AMM pool only if the `lsfAllowTrustLineClawback` flag is enabled. Attempting to do so without this flag set will result in an error code `tecNO_PERMISSION`.  
