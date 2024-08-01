@@ -11,7 +11,7 @@ Affiliation: <a href="https://ripple.com">Ripple</a>
 
 ## Abstract
 
-The AMMClawback amendment empowers token issuers on the XRP Ledger to regulate tokens in an effort to prevent misuse by blacklisted accounts. This document proposes enhancements to the interactions between frozen assets and AMM pools, as well as new clawback mechanism to enable issuer claw back from wallets who have deposited into AMM pools. This proposal will ensure that blacklisted token holders cannot transfer unauthorized funds and will significantly improve use cases such as stablecoins, where ensuring regulatory compliance is essential.
+The AMMClawback amendment enables token issuers to regulate tokens and prevent misuse by blacklisted accounts. This proposal builds upon this foundation by introducing two key enhancements: improved interactions between frozen assets and AMM pools to prevent unauthorized transfers, and a new issuer-initiated clawback mechanism. This mechanism allows issuers to claw back tokens from wallets that have deposited into AMM pools, ensuring regulatory compliance. These enhancements will effectively prevent blacklisted token holders from transferring unauthorized funds, significantly benefiting use cases like stablecoins, where regulatory compliance is crucial.
 
 ## 1. Overview
 This proposal introduces new improvements on how AMM interacts with frozen asset and clawback.
