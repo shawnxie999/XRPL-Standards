@@ -33,7 +33,7 @@ Currently, accounts that have enabled clawback cannot create AMM pools. This pro
 
 This proposal introduces changes to the behavior of the `AMMDeposit` transaction when tokens in trustlines interact with Automated Market Maker (AMM) pools. 
 
-Assume we have created an Automated Market Maker (AMM) pool with two assets: A and B. Currently, asset A is frozen by individual freeze. The following table outlines whether specific scenarios are allowed or prohibited for the current behavior and proposed behavior:
+Assume we have created an Automated Market Maker (AMM) pool with two assets: A and B. Currently, asset A is frozen (either individually or globally). The following table outlines whether specific scenarios are allowed or prohibited for the current behavior and proposed behavior:
 
 | Scenario                | Current Behavior  | Proposed Behavior     |
 |-------------------------|-------------------|-----------------------|
