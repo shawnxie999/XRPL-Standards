@@ -159,11 +159,14 @@ This proposal introduces a new transaction type `AMMClawback` to allow asset iss
 
 Issuers can only claw back issued tokens in the AMM pool only if the `lsfAllowTrustLineClawback` flag is enabled. Attempting to do so without this flag set will result in an error code `tecNO_PERMISSION`.  
 
-By designating the AMM account and holder account, this transaction will:  
-- Claw back all LPTokens held by the specified holder account that are associated with the issuer from the specified AMM account.
-- Initiate a two-asset withdrawal on the current proportion from the AMM account, resulting in:
+By designating the AMM account, holder account and amount, this transaction will:  
+- Claw back the specified amount of LPTokens held by the specified holder account that are associated with the issuer from the specified AMM account.
+- Initiate a two-asset withdrawal of the specified amount of LPTokens on the current proportion from the AMM account, resulting in:
   - The issuer's asset being returned to the issuer's account.
-  - The non-issuer asset being transferred back to the holder's account
+  - The non-issuer asset being transferred back to the holder's account,
+  - If the issuer issues both assets, then both assets will be transferred to the issuer's account.
+  - If the requested amount of LPtokens exceeds the holder's available balance, then all the LPTokens will be clawed back.
+  - If amount is not given in the request, all the LPTokens will be clawed back.
 
 ##### 2.2.2.1. Fields for AMMClawback transaction  
 
@@ -196,7 +199,21 @@ By designating the AMM account and holder account, this transaction will:
 
 `AMMAccount` specifies the AMM account from which the transaction will withdraw assets after clawing back `Holder`'s LPtokens.
 
----  
+---
+| Field Name        | Required? |      JSON Type       | Internal Type |
+| ----------------- | :-------: | :------------------: | :-----------: |
+| `Amount`          |           | `object`             |   `AMOUNT`    |
+
+`Amount` specifies the amount of LPTokens to be clawed back with the following subfields:
+
+| Field name |     Required?      | Description                                                                                                     |
+| :--------: | :----------------: | :-------------------------------------------------------------------------------------------------------------- |
+|  `issuer`  | :heavy_check_mark: | specifies issuer of the LPToken, which is the AMMAccount                                                        |
+| `currency` | :heavy_check_mark: | LPToken hash                                                                                                    |
+|  `value`   | :heavy_check_mark: | specifies the maximum amount of LPTokens to be clawed back |
+
+---
+
 
 
 ##### 2.2.2.2. AMMClawback transaction example
@@ -207,12 +224,19 @@ By designating the AMM account and holder account, this transaction will:
   "Account": "rPdYxU9dNkbzC5Y2h4jLbVJ3rMRrk7WVRL",
   "Holder": "rvYAfWj5gh67oV6fW32ZzP3Aw4Eubs59B",
   "AMMAccount": "rp2MaZMQDpgAHwWbADaQMrmf4AD5JsPQUR",
+  "Amount": {
+      "currency" : "0348ACDAB7D138D5D2AAD95492FEB7ECD5D55CC1",
+      "issuer" : "rp2MaZMQDpgAHwWbADaQMrmf4AD5JsPQUR",
+      "value" : "1000"
+  }
   "Flags": 1,
   "Fee": 10
 }
 ```
 
-- Upon execution, this transaction enables the issuer `rPdYxU9dNkbzC5Y2h4jLbVJ3rMRrk7WVRL` to claw back all LPTokens from holder `rvYAfWj5gh67oV6fW32ZzP3Aw4Eubs59B` associated with AMM account `rp2MaZMQDpgAHwWbADaQMrmf4AD5JsPQUR`.
+- Upon execution, this transaction enables the issuer `rPdYxU9dNkbzC5Y2h4jLbVJ3rMRrk7WVRL` to claw back at most 1000 LPTokens from holder `rvYAfWj5gh67oV6fW32ZzP3Aw4Eubs59B` issued by AMM account `rp2MaZMQDpgAHwWbADaQMrmf4AD5JsPQUR`. `0348ACDAB7D138D5D2AAD95492FEB7ECD5D55CC1` is the hash of the LPTokens.
 - The transaction will result in the withdrawal of two corresponding assets from the AMM account on the current proportion:  
-  - The asset issued by the `Account` will be returned to the issuer.
+  - The asset issued by the `Account` will be returned to the issuer `Account`.
   - The other asset will be transferred back to the holder's wallet.
+  - If both assets are issued by `Account`, both of them will be returned to the issuer `Account`.
+  - If `Amount` is not given or its subfield `value` exceeds the holder's available balance, then all the LPTokens will be clawed back.
