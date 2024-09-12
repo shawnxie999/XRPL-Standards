@@ -159,13 +159,21 @@ This proposal introduces a new transaction type `AMMClawback` to allow asset iss
 
 Issuers can only claw back issued tokens in the AMM pool only if the `lsfAllowTrustLineClawback` flag is enabled. Attempting to do so without this flag set will result in an error code `tecNO_PERMISSION`.  
 
-By designating the AMM account, holder account and amount, this transaction will:  
+By designating the AMM account, holder account, asset and amount, this transaction will:  
 - Claw back the specified amount of tokens held by the specified holder account that are in the specified AMM account.
-- Initiate a two-asset withdrawal of the specified amount of tokens on the current proportion from the AMM pool, resulting in:
-  - The issuer's asset being returned to the issuer's account.
-  - The paired asset being transferred back to the holder's account.
-  - If the requested amount of tokens exceeds the holder's available balance in the AMM pool, all the tokens owned by the specified holder will be clawed back.
-  - If amount is not given in the request, all the tokens owned by the specified holder will be clawed back from the pool.
+- This transaction will initiate a two-asset withdrawal of the specified amount of tokens on the current proportion from the AMM pool.
+- Provided `Asset` which is issued by the issuer must exist in the specified AMM pool. Otherwise, `tecNO_PERMISSION` will be returned.
+- If the issuer only issues one token in the AMM pool:
+  - The issuer's asset will return to the issuer's account.
+  - The paired asset which is not issued by the issuer will be transferred back to the holder's account.
+- If the two assets in the AMM pool are both issued by the issuer, this transaction will:
+  - The issuer's asset will return to the issuer's account.
+  - If `tfClawTwoAssets` flag is set, the paired asset which is also issued by the issuer, will return to issuer as well.
+  - If `tfClawTwoAssets` flag is not set, the paired asset will go back to the holder.
+- `tfClawTwoAssets` flag can only be set if the issuer issues both assets in the AMM pool. Otherwise, `tecNO_PERMISSION` will be returned.
+- If the requested amount of tokens exceeds the holder's available balance in the AMM pool, all the tokens owned by the specified holder will be clawed back.
+- If amount is not given in the request, all the tokens owned by the specified holder will be clawed back from the pool.
+
 
 ##### 2.2.2.1. Fields for AMMClawback transaction  
 
@@ -201,11 +209,29 @@ By designating the AMM account, holder account and amount, this transaction will
 
 ---
 
+| Field Name          | Required?        |  JSON Type    | Internal Type     |
+|---------------------|:----------------:|:-------------:|:-----------------:|
+| `Asset `            |:heavy_check_mark:|`object`       |   `ISSUE`         |  
+
+`Asset` specifies the token that the issuer wants to claw back from the AMM pool. `Asset` must exist in the AMM pool. If it does not, the system will return an error: `tecNO_PERMISSION`.
+It has the following subfields:
+
+| Field name |     Required?      | Description                                                                                            |
+| :--------: | :----------------: | :----------------------------------------------------------------------------------------------------- |
+|  `issuer`  | :heavy_check_mark: | specifies the issuer of the token being clawed back, this should be the same as the Account field      |
+| `currency` | :heavy_check_mark: | specifies the currency to be clawed back                                                               |
+
+---
+
 | Field Name        | Required? |      JSON Type       | Internal Type |
 | ----------------- | :-------: | :------------------: | :-----------: |
 | `Amount`          |           | `object`             |   `AMOUNT`    |
 
-`Amount` specifies the amount of token to be clawed back from the AMM account with the following subfields:
+`Amount` specifies the amount of token to be clawed back from the AMM account. It should match the `Asset` field.
+- If `Amount` is not given, all the specified asset will be clawed back.
+- If `Amount` exceeds the holder's current balance in the AMM pool, all the specified token will be clawed back.  
+
+It has the following subfields:
 
 | Field name |     Required?      | Description                                                                                        |
 | :--------: | :----------------: | :------------------------------------------------------------------------------------------------- |
@@ -214,8 +240,20 @@ By designating the AMM account, holder account and amount, this transaction will
 |  `value`   | :heavy_check_mark: | specifies the maximum amount of this currency to be clawed back                                    |
 
 ---
+##### 2.2.2.2. Flags
+| Flag Name         |  Hex Value   | Description |
+| ----------------- | :----------: | :----------:|
+| `tfClawTwoAssets` | 0x00000001  | Indicates if the issuer wants to claw back both tokens in the pool. The two assets must both issued by the issuer|
 
-##### 2.2.2.2. AMMClawback transaction example
+- It can be set only when the issuer issues both assets in the AMM pool.
+- If set, both the `Asset` token and the paired token will be clawed back.
+- If not set, only the `Asset` token will be clawed back, and the paired token will go back to the holder.
+
+##### 2.2.2.3. AMMClawback transaction examples
+
+
+###### 2.2.2.3.1 Only one token is issued by the issuer
+Assue we have an AMM pool consisting two tokens FOO and Bar. And the proportion of FOO and BAR is 1:2. And the issuer `rPdYxU9dNkbzC5Y2h4jLbVJ3rMRrk7WVRL` only issues FOO, BAR is issued by some other account.
 
 ```
 {
@@ -223,27 +261,60 @@ By designating the AMM account, holder account and amount, this transaction will
   "Account": "rPdYxU9dNkbzC5Y2h4jLbVJ3rMRrk7WVRL",
   "Holder": "rvYAfWj5gh67oV6fW32ZzP3Aw4Eubs59B",
   "AMMAccount": "rp2MaZMQDpgAHwWbADaQMrmf4AD5JsPQUR",
+  "Asset": {
+      "currency" : "FOO",
+      "issuer" : "rPdYxU9dNkbzC5Y2h4jLbVJ3rMRrk7WVRL"
+  },
   "Amount": {
       "currency" : "FOO",
       "issuer" : "rPdYxU9dNkbzC5Y2h4jLbVJ3rMRrk7WVRL",
       "value" : "1000"
   }
-  "Flags": 1,
-  "Fee": 10
 }
 ```
 
 - Upon execution, this transaction enables the issuer `rPdYxU9dNkbzC5Y2h4jLbVJ3rMRrk7WVRL` to claw back at most 1000 FOO from AMM account `rp2MaZMQDpgAHwWbADaQMrmf4AD5JsPQUR` owned by holder `rvYAfWj5gh67oV6fW32ZzP3Aw4Eubs59`.
 - The transaction will result in the withdrawal of two corresponding assets from the AMM account on the current proportion:  
   - The asset issued by the `Account` will be returned to the issuer `Account`. So 1000 FOO will be returned to the issuer `rPdYxU9dNkbzC5Y2h4jLbVJ3rMRrk7WVRL`.
-  - The other asset will be transferred back to the holder's wallet.
+  - The other asset will be transferred back to the holder's wallet. Since the proportion of FOO and BAR is 1:2, 2000 BAR will be transferred back to the holder's wallet.
   - If `Amount` is not given or its subfield `value` exceeds the holder's available balance, then all the holder's FOO will be clawed back from the AMM account.
+- `tfClawTwoAssets` can not be set because BAR is not issued by the issuer.
 
-##### 2.2.2.3. Best practice if issuer issued both assets
+###### 2.2.2.3.1 Both tokens are issued by the issuer
+Assue we have an AMM pool consisting two tokens FOO and Bar. And the proportion of FOO and BAR is 1:2. And the issuer `rPdYxU9dNkbzC5Y2h4jLbVJ3rMRrk7WVRL` issues both FOO and BAR.
+```
+{
+  "TransactionType": "AMMClawback",
+  "Account": "rPdYxU9dNkbzC5Y2h4jLbVJ3rMRrk7WVRL",
+  "Holder": "rvYAfWj5gh67oV6fW32ZzP3Aw4Eubs59B",
+  "AMMAccount": "rp2MaZMQDpgAHwWbADaQMrmf4AD5JsPQUR",
+  "Asset": {
+      "currency" : "FOO",
+      "issuer" : "rPdYxU9dNkbzC5Y2h4jLbVJ3rMRrk7WVRL"
+  },
+  "Amount": {
+      "currency" : "FOO",
+      "issuer" : "rPdYxU9dNkbzC5Y2h4jLbVJ3rMRrk7WVRL",
+      "value" : "1000"
+  },
+  "Flags": 65536
+}
+```
+- In this example, `tfClawTwoAssets` is set in the `Flags`, so 1000 FOO and 2000 BAR will both go back to the issuer. (If `tfClawTwoAssets` is not set in the `Flags`, 1000 FOO will go back to the issuer and 2000 BAR will be transferred back to the holder.)
+- If `Amount` is not given or its subfield `value` exceeds the holder's available balance, then we will claw back the holder's existing balance of FOO in the AMM pool. And whether BAR will be clawed back or go back to the holder is still determined by the flag `tfClawTwoAssets`.
 
-There is a very rare case that an issuer has issued both tokens in an AMM pool (e.g., FOO and BAR) and needs to claw back one token along with a proportional amount of the other. The following procedure should be followed:
- - Freeze trustline for token FOO between issuer and holder.
- - Freeze trustline for token BAR between issuer and holder.
- - AMMClawback some amount of FOO.
- - After some amount of FOO going back to the isser, and proportional amount of BAR going back to the holder's account, do a regular Clawback for the BAR token.
- - Unfreeze trustlines if needed.
+###### 2.2.2.3.1 Clawback all the tokens
+```
+{
+  "TransactionType": "AMMClawback",
+  "Account": "rPdYxU9dNkbzC5Y2h4jLbVJ3rMRrk7WVRL",
+  "Holder": "rvYAfWj5gh67oV6fW32ZzP3Aw4Eubs59B",
+  "AMMAccount": "rp2MaZMQDpgAHwWbADaQMrmf4AD5JsPQUR",
+  "Asset": {
+      "currency" : "FOO",
+      "issuer" : "rPdYxU9dNkbzC5Y2h4jLbVJ3rMRrk7WVRL"
+  }
+}
+```
+- Issuer will clawback all of the holder's FOO token balance in the AMM pool by omitting the `Amount` field.
+- If the issuer issues both tokens in the AMM pool, he can use `tfClawTwoAssets` flag to determine whether the paired token will be clawed back or transferred back to the holder.
